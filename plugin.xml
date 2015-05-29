@@ -1,0 +1,15 @@
+<library path="src">
+  <class name="Bag Annotator" type="rqt_bag_annotator.annotator.Annotator" base_class_type="rqt_gui_py::Plugin">
+    <description>
+      A plugin for annotating bags with other topics.
+    </description>
+    <qtgui>
+      <group>
+        <label>Logging</label>
+      </group>
+      <label>Bag Annotator</label>
+      <icon type="theme">system-help</icon>
+      <statustip>A plugin for annotating bags with other topics.</statustip>
+    </qtgui>
+  </class>
+</library>
