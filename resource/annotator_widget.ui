@@ -17,11 +17,21 @@
    <item>
     <layout class="QVBoxLayout" name="verticalLayout_3">
      <item>
-      <layout class="QHBoxLayout" name="horizontalLayout_3" stretch="0,0,0,0,0,0,0,0,0,0,0">
+      <layout class="QHBoxLayout" name="horizontalLayout_3" stretch="0,0,0,0,0,0,0,0,0,0,0,0">
        <item>
         <widget class="QPushButton" name="loadFolderButton">
          <property name="text">
           <string>Load Folder</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="croppedButton">
+         <property name="text">
+          <string>Cropped?</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
          </property>
         </widget>
        </item>
@@ -214,6 +224,9 @@
         <layout class="QVBoxLayout" name="verticalLayout_2">
          <item>
           <widget class="QTreeWidget" name="addedMessagesTable">
+           <property name="expandsOnDoubleClick">
+            <bool>false</bool>
+           </property>
            <column>
             <property name="text">
              <string notr="true">1</string>

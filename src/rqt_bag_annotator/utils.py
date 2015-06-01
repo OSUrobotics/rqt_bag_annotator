@@ -5,10 +5,12 @@ import genpy.message
 import numpy as np
 import rospy
 
-date_re = re.compile('.+_(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})_(\d{2})\.bag')
+date_re = re.compile('.+_(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})_(\d{2,3})\.bag')
 
 def annotation_path(bag_path, extra='annotations'):
     path_parts = bag_path.split('.')
+    if len(path_parts) >= 3 and path_parts[-2] == 'cropped':
+        path_parts.pop(-2)
 
     path_parts.insert(-1, extra)
     return '.'.join(path_parts)

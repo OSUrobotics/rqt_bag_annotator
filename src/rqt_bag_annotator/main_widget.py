@@ -13,7 +13,7 @@ from std_msgs.msg import String, Duration, Empty
 import genpy.message
 
 import os
-from glob import glob
+import re
 
 from .utils import annotation_path, sort_bags, MonitorPublisher
 
@@ -101,17 +101,26 @@ class MessageItem(QTreeWidgetItem):
         super(MessageItem, self).__init__()
         if toplevel:
             self.setText(0, str(stamp.to_sec()))
+            self.setData(0, Qt.UserRole, stamp)
+            self.setFlags(self.flags() | Qt.ItemIsEditable)
         self.setText(1, name)
+        self.setData(1, Qt.UserRole, name)
         if hasattr(msg, '_type'):
             self.setText(2, msg._type)
         else:
             self.setText(2, type(msg).__name__)
         self.setData(2, Qt.UserRole, type(msg))
         self.stamp = stamp
-        self.topic = name
+        self._topic = name
         self.msg = msg
         self._add_msgs(msg)
+        self.toplevel = toplevel
         self.setExpanded(True)
+        # self.itemChanged.connect(self._itemChanged)
+
+    @property
+    def topic(self):
+        return self.text(1)
 
     def _add_msgs(self, msg):
         for attr in dir(msg):
@@ -153,6 +162,14 @@ class MessageItem(QTreeWidgetItem):
             setattr(msg, name, child_obj)
 
         return self.topic, msg, self.stamp
+
+    def selfupdate(self, col):
+        dtype = type(self.data(col, Qt.UserRole))
+        if self.toplevel and col == 0:
+            self.stamp = dtype(float(self.text(col)))
+
+        elif not isinstance(None, dtype):
+            self.setData(col, Qt.UserRole, dtype(self.text(col)))
 
 
 class MainWidget(QWidget):
@@ -261,10 +278,13 @@ class MainWidget(QWidget):
             indexes = set(i.row() for i in self.addedMessagesTable.selectedIndexes())
             for index in indexes:
                 self.addedMessagesTable.takeTopLevelItem(index)
+        self.updateAnnotationPublisher()
 
     def _message_table_item_changed(self, item, column):
-        if column == 3:
+        if column == 3 and isinstance(item, SimpleMessageItem):
             item.updateChanged()
+        else: item.selfupdate(column)
+        self.updateAnnotationPublisher()
 
     def _current_interval(self):
         for item in self.addedMessagesTable.selectedItems():
@@ -336,8 +356,19 @@ class MainWidget(QWidget):
             self.nextBagButton.setEnabled(True)
 
     def _load_folder(self, dir_path):
-        self.bags = glob(os.path.join(dir_path, 'compressed_wheelchair_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9]_[0-9][0-9].bag'))
+        paths = os.listdir(dir_path)
+        self.bags = [os.path.join(dir_path, p) for p in paths if re.search(r'compressed_wheelchair_\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}_\d{2,3}.bag', p)]
+        # self.bags = glob(os.path.join(dir_path, 'compressed_wheelchair_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9]_{[0-9][0-9][0-9],[0-9][0-9]}.bag'))
         self.bags = sort_bags(self.bags)
+        bags = []
+        if self.croppedButton.isChecked():
+            for bag in self.bags:
+                bag_parts = bag.split('.')
+                bag_parts.insert(-1, 'cropped')
+                bag = '.'.join(bag_parts)
+                if os.path.exists(bag):
+                    bags.append(bag)
+            self.bags = bags
         self.current_bag = 0
         self._load_current_bag()
 
@@ -368,6 +399,10 @@ class MainWidget(QWidget):
 
     def _load_annotations(self, annotation_path):
         bag = rosbag.Bag(annotation_path, 'r')
+        del self._annotation_publisher
+        self._annotation_publisher = MonitorPublisher()
+        if self.publishAnnotations.isChecked():
+            self._annotation_publisher.start()
         for topic, msg, stamp in bag.read_messages():
             self._add_annotation(msg, topic, stamp)
         bag.close()
@@ -376,10 +411,15 @@ class MainWidget(QWidget):
         item = MessageItem(
             msg,
             topic,
-            time
+            time,
+            toplevel=True
         )
         self.addedMessagesTable.addTopLevelItem(item)
+        self.updateAnnotationPublisher()
 
+        return item
+
+    def updateAnnotationPublisher(self):
         times = []
         messages = []
         for i in range(self.addedMessagesTable.topLevelItemCount()):
@@ -388,8 +428,6 @@ class MainWidget(QWidget):
             times.append(time)
             messages.append((topic, msg))
         self._annotation_publisher.update_msgs(times, messages)
-
-        return item
 
     def _publish_annotations(self, status):
         if status:
